@@ -1,0 +1,106 @@
+{
+  "build": {
+    "beforeDevCommand": "",
+    "beforeBuildCommand": "",
+    "devPath": "http://localhost:1420",
+    "distDir": "../src"
+  },
+  "package": {
+    "productName": "gotify-desktop",
+    "version": "0.2.0",
+    "identifier": "com.gotify.desktop",
+    "deb": {
+      "depends": ["libwebkit2gtk-4.0", "libappindicator3-0.1"]
+    },
+    "rpm": {
+      "requires": ["webkit2gtk3.0", "libappindicator"]
+    },
+    "macOS": {
+      "entitlements": null,
+      "frameworks": [],
+      "minimumSystemVersion": "10.13"
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    }
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": {
+        "open": true
+      },
+      "dialog": {
+        "open": true,
+        "save": true
+      },
+      "fs": {
+        "readFile": true,
+        "writeFile": true
+      },
+      "window": {
+        "all": true,
+        "close": true,
+        "startDragging": true,
+        "setAlwaysOnTop": true,
+        "setTitle": true
+      }
+    },
+    "bundle": {
+      "active": true,
+      "targets": "all",
+      "identifier": "com.gotify.desktop",
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns",
+        "icons/icon.ico"
+      ]
+    },
+    "windows": [
+      {
+        "title": "Gotify Desktop",
+        "width": 900,
+        "height": 700,
+        "minWidth": 600,
+        "minHeight": 400,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    },
+    "MacOS": {
+      "entitlements": null,
+      "exceptionDomain": "",
+      "frameworks": [],
+      "providerShortName": null,
+      "signingIdentity": null
+    },
+    "linux": {
+      "deb": {
+        "depends": []
+      },
+      "rpm": {
+        "depends": []
+      },
+      "appimage": {
+        "depends": []
+      },
+      "desktop": {
+        "Name": "Gotify Desktop",
+        "Comment": "A desktop client for Gotify",
+        "Exec": "gotify-desktop",
+        "Icon": "gotify-desktop",
+        "Categories": "Network;Chat;"
+      }
+    }
+  }
+}
