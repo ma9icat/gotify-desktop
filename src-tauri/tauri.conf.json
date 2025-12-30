@@ -5,28 +5,10 @@
     "devPath": "http://localhost:1420",
     "distDir": "../src"
   },
-  "package": {
+  "tauri": {
+    "identifier": "com.gotify.desktop",
     "productName": "gotify-desktop",
     "version": "0.2.0",
-    "identifier": "com.gotify.desktop",
-    "deb": {
-      "depends": ["libwebkit2gtk-4.0", "libappindicator3-0.1"]
-    },
-    "rpm": {
-      "requires": ["webkit2gtk3.0", "libappindicator"]
-    },
-    "macOS": {
-      "entitlements": null,
-      "frameworks": [],
-      "minimumSystemVersion": "10.13"
-    },
-    "windows": {
-      "certificateThumbprint": null,
-      "digestAlgorithm": "sha256",
-      "timestampUrl": ""
-    }
-  },
-  "tauri": {
     "allowlist": {
       "all": false,
       "shell": {
@@ -76,31 +58,6 @@
     ],
     "security": {
       "csp": null
-    },
-    "MacOS": {
-      "entitlements": null,
-      "exceptionDomain": "",
-      "frameworks": [],
-      "providerShortName": null,
-      "signingIdentity": null
-    },
-    "linux": {
-      "deb": {
-        "depends": []
-      },
-      "rpm": {
-        "depends": []
-      },
-      "appimage": {
-        "depends": []
-      },
-      "desktop": {
-        "Name": "Gotify Desktop",
-        "Comment": "A desktop client for Gotify",
-        "Exec": "gotify-desktop",
-        "Icon": "gotify-desktop",
-        "Categories": "Network;Chat;"
-      }
     }
   }
 }
