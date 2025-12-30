@@ -1,109 +1,113 @@
-#![cfg_attr(
-    all(not(debug_assertions), target_os = "windows"),
-    windows_subsystem = "windows"
-)]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod gotify;
-
-#[cfg(test)]
-mod tests;
-
-use gotify::{GotifyClient, GotifyError, Message};
-use serde::{Deserialize, Serialize};
-use tauri::{State, api::error::ErrorMessage};
+use gotify::{GotifyClient, GotifyError};
+use log::info;
 use std::sync::Mutex;
+use tauri::{State, command};
 
-#[derive(Default)]
-struct AppState(Mutex<Option<GotifyClient>>);
+struct AppState {
+    client: Mutex<Option<GotifyClient>>,
+}
 
 impl AppState {
-    pub fn set_client(&self, client: GotifyClient) {
-        *self.0.lock().expect("Failed to lock AppState") = Some(client);
+    fn new() -> Self {
+        Self {
+            client: Mutex::new(None),
+        }
     }
 
-    pub fn clear_client(&self) {
-        *self.0.lock().expect("Failed to lock AppState") = None;
+    fn set_client(&self, client: GotifyClient) {
+        *self.client.lock().unwrap() = Some(client);
+        info!("Gotify client initialized");
     }
 
-    pub fn get_client(&self) -> Result<GotifyClient, GotifyError> {
-        self.0
+    fn clear_client(&self) {
+        *self.client.lock().unwrap() = None;
+        info!("Gotify client cleared");
+    }
+
+    fn get_client(&self) -> Result<GotifyClient, String> {
+        self.client
             .lock()
-            .expect("Failed to lock AppState")
-            .as_ref()
-            .cloned()
-            .ok_or(GotifyError::NotConnected)
+            .unwrap()
+            .clone()
+            .ok_or_else(|| "Not connected to Gotify server. Please connect first.".to_string())
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(serde::Deserialize)]
 struct ConnectRequest {
     server_url: String,
     token: String,
 }
 
-#[derive(Serialize, Deserialize)]
-struct ApiResponse<T> {
-    success: bool,
-    data: Option<T>,
-    error: Option<String>,
-}
+type ApiResponse<T> = Result<T, String>;
 
-impl<T> From<Result<T, GotifyError>> for ApiResponse<T> {
-    fn from(result: Result<T, GotifyError>) -> Self {
-        match result {
-            Ok(data) => Self {
-                success: true,
-                data: Some(data),
-                error: None,
-            },
-            Err(e) => Self {
-                success: false,
-                data: None,
-                error: Some(e.to_string()),
-            },
+#[command]
+async fn connect_to_gotify(state: State<'_, AppState>, req: ConnectRequest) -> ApiResponse<()> {
+    info!("Attempting to connect to Gotify server at: {}", req.server_url);
+
+    match GotifyClient::new(&req.server_url, &req.token) {
+        Ok(client) => {
+            state.set_client(client);
+            Ok(())
+        }
+        Err(e) => {
+            let error_msg = format!("Failed to connect to Gotify server: {}", e);
+            error!("{}", error_msg);
+            Err(error_msg)
         }
     }
 }
 
-#[tauri::command]
-async fn connect_to_gotify(state: State<'_, AppState>, req: ConnectRequest) -> ApiResponse<()> {
-    let result = GotifyClient::new(&req.server_url, &req.token)
-        .map(|client| state.set_client(client));
-    result.into()
-}
-
-#[tauri::command]
-async fn fetch_messages(state: State<'_, AppState>, since: Option<u64>) -> ApiResponse<Vec<Message>> {
+#[command]
+async fn fetch_messages(state: State<'_, AppState>, since: Option<u64>) -> ApiResponse<Vec<gotify::Message>> {
     let client = state.get_client()?;
-    client.get_messages(since).await.into()
+    client.get_messages(since).await.map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[command]
 async fn disconnect_gotify(state: State<'_, AppState>) -> ApiResponse<()> {
     state.clear_client();
-    ApiResponse {
-        success: true,
-        data: None,
-        error: None,
-    }
+    Ok(())
 }
 
-#[tauri::command]
+#[command]
 async fn delete_message(state: State<'_, AppState>, message_id: u64) -> ApiResponse<()> {
     let client = state.get_client()?;
-    client.delete_message(message_id).await.into()
+    client.delete_message(message_id).await.map_err(|e| e.to_string())
 }
 
-fn main() {
-    env_logger::init();
+#[command]
+async fn get_health(state: State<'_, AppState>) -> ApiResponse<bool> {
+    let client = state.get_client()?;
+    client.get_health().await.map_err(|e| e.to_string())
+}
 
+#[command]
+async fn create_message(state: State<'_, AppState>, title: String, message: String, priority: i32) -> ApiResponse<gotify::Message> {
+    let client = state.get_client()?;
+    client.create_message(&title, &message, priority).await.map_err(|e| e.to_string())
+}
+
+#[command]
+async fn get_applications(state: State<'_, AppState>) -> ApiResponse<Vec<gotify::Application>> {
+    let client = state.get_client()?;
+    client.get_applications().await.map_err(|e| e.to_string())
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
     tauri::Builder::default()
-        .manage(AppState::default())
+        .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![
             connect_to_gotify,
             fetch_messages,
             disconnect_gotify,
-            delete_message
+            delete_message,
+            get_health,
+            create_message,
+            get_applications
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

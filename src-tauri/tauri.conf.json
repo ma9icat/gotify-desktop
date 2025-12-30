@@ -1,47 +1,15 @@
 {
+  "$schema": "https://schema.tauri.app/config/2.7.0",
+  "productName": "gotify-desktop",
+  "version": "0.2.0",
+  "identifier": "com.gotify.desktop",
   "build": {
+    "devUrl": "http://localhost:1420",
     "beforeDevCommand": "",
     "beforeBuildCommand": "",
-    "devPath": "http://localhost:1420",
-    "distDir": "../src"
+    "features": []
   },
-  "tauri": {
-    "identifier": "com.gotify.desktop",
-    "productName": "gotify-desktop",
-    "version": "0.2.0",
-    "allowlist": {
-      "all": false,
-      "shell": {
-        "open": true
-      },
-      "dialog": {
-        "open": true,
-        "save": true
-      },
-      "fs": {
-        "readFile": true,
-        "writeFile": true
-      },
-      "window": {
-        "all": true,
-        "close": true,
-        "startDragging": true,
-        "setAlwaysOnTop": true,
-        "setTitle": true
-      }
-    },
-    "bundle": {
-      "active": true,
-      "targets": "all",
-      "identifier": "com.gotify.desktop",
-      "icon": [
-        "icons/32x32.png",
-        "icons/128x128.png",
-        "icons/128x128@2x.png",
-        "icons/icon.icns",
-        "icons/icon.ico"
-      ]
-    },
+  "app": {
     "windows": [
       {
         "title": "Gotify Desktop",
@@ -59,5 +27,10 @@
     "security": {
       "csp": null
     }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "identifier": "com.gotify.desktop"
   }
 }
