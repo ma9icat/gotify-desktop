@@ -1,13 +1,13 @@
+use log::info;
 use reqwest::{Client, Error as ReqwestError};
-use serde::Deserialize;
+use serde::Serialize;
 use serde_json::Error as JsonError;
 use thiserror::Error;
 use url::Url;
+use tokio::sync::mpsc;
 
 #[derive(Debug, Error)]
 pub enum GotifyError {
-    #[error("Not connected to Gotify server")]
-    NotConnected,
     #[error("Authentication failed: {0}")]
     AuthFailed(String),
     #[error("Server error: {0}")]
@@ -22,8 +22,6 @@ pub enum GotifyError {
     InvalidUrl(String),
     #[error("Request failed: {0}")]
     RequestError(String),
-    #[error("Unknown error: {0}")]
-    Unknown(String),
 }
 
 impl GotifyError {
@@ -40,18 +38,20 @@ impl GotifyError {
     }
 }
 
-#[derive(serde::Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct Message {
     pub id: u64,
     pub message: String,
     pub title: Option<String>,
     pub priority: i32,
+    #[serde(alias = "date")]
     pub timestamp: String,
+    #[serde(alias = "appid")]
     pub app_id: u64,
     pub extras: Option<serde_json::Value>,
 }
 
-#[derive(serde::Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct Application {
     pub id: u64,
     pub name: String,
@@ -59,11 +59,13 @@ pub struct Application {
     pub token: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GotifyClient {
     base_url: String,
     token: String,
     client: Client,
+    // 用于发送新消息的通道发送端
+    message_tx: Option<mpsc::UnboundedSender<Message>>,
 }
 
 impl GotifyClient {
@@ -79,31 +81,56 @@ impl GotifyClient {
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(30))
             .build()
-            .map_err(|e| GotifyError::NetworkError(e))?;
+            .map_err(GotifyError::NetworkError)?;
 
         Ok(Self {
             base_url,
             token: token.to_string(),
             client,
+            message_tx: None,
         })
     }
 
+    pub fn set_message_sender(&mut self, tx: mpsc::UnboundedSender<Message>) {
+        self.message_tx = Some(tx);
+    }
+
+    pub fn get_base_url(&self) -> &str {
+        &self.base_url
+    }
+
+    pub fn get_token(&self) -> &str {
+        &self.token
+    }
+
     async fn get(&self, endpoint: &str) -> Result<reqwest::Response, GotifyError> {
-        let url = format!("{}/{}?token={}", self.base_url, endpoint, self.token);
+        let url = if endpoint.contains('?') {
+            format!("{}/{}&token={}", self.base_url, endpoint, self.token)
+        } else {
+            format!("{}/{}?token={}", self.base_url, endpoint, self.token)
+        };
         info!("GET {}", url);
         let resp = self.client.get(&url).send().await.map_err(GotifyError::NetworkError)?;
         Ok(resp)
     }
 
     async fn delete(&self, endpoint: &str) -> Result<(), GotifyError> {
-        let url = format!("{}/{}?token={}", self.base_url, endpoint, self.token);
+        let url = if endpoint.contains('?') {
+            format!("{}/{}&token={}", self.base_url, endpoint, self.token)
+        } else {
+            format!("{}/{}?token={}", self.base_url, endpoint, self.token)
+        };
         info!("DELETE {}", url);
         self.client.delete(&url).send().await.map_err(GotifyError::NetworkError)?;
         Ok(())
     }
 
     async fn post(&self, endpoint: &str, body: &str) -> Result<reqwest::Response, GotifyError> {
-        let url = format!("{}/{}?token={}", self.base_url, endpoint, self.token);
+        let url = if endpoint.contains('?') {
+            format!("{}/{}&token={}", self.base_url, endpoint, self.token)
+        } else {
+            format!("{}/{}?token={}", self.base_url, endpoint, self.token)
+        };
         info!("POST {}", url);
         let resp = self.client.post(&url).body(body.to_string()).send().await.map_err(GotifyError::NetworkError)?;
         Ok(resp)
@@ -120,27 +147,45 @@ impl GotifyClient {
         Ok(body)
     }
 
-    pub async fn get_messages(&self, since: Option<u64>) -> Result<Vec<Message>, GotifyError> {
-        let endpoint = if let Some(id) = since {
-            format!("message?since={}", id)
-        } else {
-            "message".to_string()
-        };
+    pub async fn get_messages(&self, since: Option<u64>, limit: Option<u64>, offset: Option<u64>) -> Result<Vec<Message>, GotifyError> {
+        let mut endpoint = "message".to_string();
+        let mut params = Vec::new();
+
+        if let Some(id) = since {
+            params.push(format!("since={}", id));
+        }
+        if let Some(l) = limit {
+            params.push(format!("limit={}", l));
+        }
+        if let Some(o) = offset {
+            params.push(format!("offset={}", o));
+        }
+
+        if !params.is_empty() {
+            endpoint = format!("message?{}", params.join("&"));
+        }
+
+        info!("Fetching messages from endpoint: {}", endpoint);
 
         let resp = self.get(&endpoint).await?;
         let body = Self::handle_response(resp).await?;
+        info!("Got response body: {}", body);
+
         let value: serde_json::Value = serde_json::from_str(&body).map_err(GotifyError::JsonError)?;
+        info!("Parsed JSON: {}", value);
 
         let messages: Vec<Message> = value["messages"]
             .as_array()
             .ok_or_else(|| {
-                let err = JsonError::custom("no messages array in response");
-                GotifyError::JsonError(err)
+                let err = serde_json::json!({"error": "no messages array in response"});
+                let err_str = err.to_string();
+                GotifyError::JsonError(serde::ser::Error::custom(err_str))
             })?
             .iter()
             .filter_map(|m| serde_json::from_value(m.clone()).ok())
             .collect();
 
+        info!("Parsed {} messages", messages.len());
         Ok(messages)
     }
 

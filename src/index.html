@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gotify Desktop</title>
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
   <style>
     * {
         box-sizing: border-box;
@@ -18,10 +19,136 @@
         line-height: 1.6;
     }
 
+    .app-container {
+        display: flex;
+        min-height: 100vh;
+    }
+
+.sidebar {
+        width: 200px;
+        background: #2c3e50;
+        color: white;
+        padding: 20px 0;
+        flex-shrink: 0;
+        transition: width 0.3s ease;
+        position: fixed;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        overflow: visible;
+        display: flex;
+        flex-direction: column;
+        z-index: 100;
+    }
+
+    .sidebar.collapsed {
+        width: 50px;
+    }
+
+    .sidebar.collapsed .sidebar-title,
+    .sidebar.collapsed .nav-text {
+        display: none;
+    }
+
+    .sidebar.collapsed .nav-item {
+        justify-content: center;
+        padding: 12px;
+    }
+
+    .sidebar.collapsed .sidebar-footer {
+        padding: 10px;
+        justify-content: center;
+    }
+
+    .sidebar-title {
+        padding: 0 20px 20px;
+        font-size: 1.2rem;
+        font-weight: 600;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        margin-bottom: 10px;
+    }
+
+    .nav-item {
+        padding: 12px 20px;
+        cursor: pointer;
+        transition: background 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        position: relative;
+    }
+
+    .nav-item i {
+        font-size: 18px;
+    }
+
+    /* 悬浮提示 */
+    .nav-tooltip {
+        position: fixed;
+        left: 60px;
+        background: #2c3e50;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 14px;
+        white-space: nowrap;
+        z-index: 1000;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        display: none;
+        pointer-events: none;
+    }
+
+    .nav-item:hover {
+        background: rgba(255,255,255,0.1);
+    }
+
+    .nav-item.active {
+        background: #667eea;
+    }
+
+    .sidebar-footer {
+        margin-top: auto;
+        padding: 10px;
+        display: flex;
+        justify-content: center;
+        border-top: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .sidebar-toggle {
+        background: rgba(255,255,255,0.15);
+        border: none;
+        color: white;
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        font-size: 22px;
+    }
+
+    .sidebar-toggle:hover {
+        background: rgba(255,255,255,0.2);
+    }
+
+    .sidebar.collapsed .sidebar-toggle i {
+        transform: rotate(180deg);
+    }
+
+    .main-content {
+        flex: 1;
+        padding: 20px;
+        overflow-y: auto;
+        margin-left: 200px;
+        transition: margin-left 0.3s ease;
+        min-height: 100vh;
+    }
+
     .container {
         max-width: 900px;
         margin: 0 auto;
-        padding: 20px;
     }
 
     header {
@@ -77,6 +204,15 @@
         background: #f87171;
     }
 
+    #configDisplay {
+        font-size: 0.8rem;
+        padding: 3px 10px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        margin-left: 10px;
+    }
+
     .card {
         background: white;
         border-radius: 8px;
@@ -114,6 +250,21 @@
     .form-group input:focus {
         outline: none;
         border-color: #667eea;
+    }
+
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+        font-weight: 500;
+        color: #555;
+    }
+
+    .checkbox-label input[type="checkbox"] {
+        width: auto;
+        margin: 0;
+        cursor: pointer;
     }
 
     .btn-group {
@@ -290,6 +441,68 @@
         background: #fecaca;
     }
 
+    .config-item {
+        background: #f9fafb;
+        border-radius: 6px;
+        padding: 12px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .config-info {
+        flex: 1;
+    }
+
+    .config-name {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 4px;
+    }
+
+    .config-url {
+        font-size: 0.85rem;
+        color: #666;
+    }
+
+    .config-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .config-btn {
+        padding: 6px 12px;
+        font-size: 0.85rem;
+    }
+
+    .config-btn.connect {
+        background: #667eea;
+        color: white;
+    }
+
+    .config-btn.connect:hover {
+        background: #5a6fd6;
+    }
+
+    .config-btn.delete {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+
+    .config-btn.delete:hover {
+        background: #fecaca;
+    }
+
+    .default-badge {
+        font-size: 0.7rem;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: #667eea;
+        color: white;
+        margin-left: 8px;
+    }
+
     @media (max-width: 600px) {
         .container {
             padding: 10px;
@@ -304,54 +517,377 @@
             gap: 5px;
         }
     }
+
+    /* 悬浮按钮 */
+    .fab-add {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        transition: transform 0.2s, box-shadow 0.2s;
+        z-index: 100;
+    }
+
+    .fab-add:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+    }
+
+    /* 模态框 */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal.show {
+        display: flex;
+    }
+
+    .modal-content {
+        background: white;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 500px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        font-size: 1.2rem;
+        color: #333;
+    }
+
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #999;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+
+    .modal-close:hover {
+        background: #f5f5f5;
+        color: #333;
+    }
+
+    .modal-body {
+        padding: 20px;
+    }
+
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 20px;
+        border-top: 1px solid #eee;
+    }
+
+    /* 配置列表样式 */
+    .config-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 15px;
+        margin-top: 20px;
+    }
+
+    .config-card {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        border: 2px solid transparent;
+        transition: all 0.2s;
+    }
+
+    .config-card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .config-card.default {
+        border-color: #667eea;
+    }
+
+    .config-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 10px;
+    }
+
+    .config-name {
+        font-weight: 600;
+        font-size: 1.1rem;
+        color: #333;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .connected-badge {
+        font-size: 0.75rem;
+        background: #4ade80;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+    }
+
+    .config-card.connected {
+        border: 2px solid #4ade80;
+        background: #f0fdf4;
+    }
+
+    .config-last-used {
+        font-size: 0.8rem;
+        color: #999;
+    }
+
+    .config-url {
+        color: #666;
+        font-size: 0.9rem;
+        margin-bottom: 15px;
+        word-break: break-all;
+    }
+
+    .config-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .config-action-btn {
+        padding: 6px 12px;
+        font-size: 0.85rem;
+        border-radius: 4px;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        transition: all 0.2s;
+    }
+
+    .config-action-btn.primary {
+        background: #667eea;
+        color: white;
+    }
+
+    .config-action-btn.primary:hover {
+        background: #5a6fd6;
+    }
+
+    .config-action-btn.danger {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+
+    .config-action-btn.danger:hover {
+        background: #fecaca;
+    }
+
+    .config-action-btn.secondary {
+        background: #e5e7eb;
+        color: #374151;
+    }
+
+    .config-action-btn.secondary:hover {
+        background: #d1d5db;
+    }
+
+    /* 加载更多按钮 */
+    .load-more-btn {
+        display: block;
+        margin: 20px auto 0;
+        padding: 10px 30px;
+        background: white;
+        border: 1px solid #667eea;
+        color: #667eea;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 0.9rem;
+    }
+
+    .load-more-btn:hover {
+        background: #667eea;
+        color: white;
+    }
+
+    .loading-more {
+        text-align: center;
+        padding: 20px;
+        color: #666;
+        font-size: 0.9rem;
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>Gotify Desktop</h1>
-      <div class="status-bar">
-        <span class="status disconnected" id="statusIndicator">
-          <span id="statusText">未连接</span>
-        </span>
-        <span id="serverUrlDisplay"></span>
+  <div class="app-container">
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-title">Gotify Desktop</div>
+      <div class="nav-item active" data-page="messages" data-title="消息" onclick="switchPage('messages')">
+        <i class="ri-message-3-line"></i>
+        <span class="nav-text">消息</span>
       </div>
-    </header>
-
-    <div class="error-message" id="errorMessage"></div>
-
-    <div class="card">
-      <h2>连接设置</h2>
-      <div class="form-group">
-        <label for="serverUrl">服务器 URL</label>
-        <input 
-          id="serverUrl" 
-          type="url" 
-          placeholder="https://your-gotify.example.com" 
-          value="https://your-gotify.example.com"
-        />
+      <div class="nav-item" data-page="servers" data-title="服务器" onclick="switchPage('servers')">
+        <i class="ri-server-line"></i>
+        <span class="nav-text">服务器</span>
       </div>
-      <div class="form-group">
-        <label for="token">访问令牌 (Token)</label>
-        <input 
-          id="token" 
-          type="password" 
-          placeholder="输入您的 Gotify 访问令牌"
-        />
+      <div style="flex: 1;"></div>
+      <div class="nav-item" data-page="settings" data-title="设置" onclick="switchPage('settings')">
+        <i class="ri-settings-3-line"></i>
+        <span class="nav-text">设置</span>
       </div>
-      <div class="btn-group">
-        <button id="connectBtn" class="btn-primary">连接</button>
-        <button id="disconnectBtn" class="btn-danger" style="display: none;">断开连接</button>
+      <div class="sidebar-footer">
+        <button class="sidebar-toggle" onclick="toggleSidebar()" id="sidebarToggle" style="display: flex !important; visibility: visible !important; opacity: 1 !important;">
+          <i class="ri-arrow-left-s-line"></i>
+        </button>
       </div>
     </div>
 
-    <div class="card">
-      <div id="messages">
-        <p class="empty-state">连接到 Gotify 服务器后查看消息</p>
+    <div class="main-content">
+      <div class="container">
+        <header>
+          <h1>Gotify Desktop</h1>
+          <div class="status-bar">
+            <span class="status disconnected" id="statusIndicator">
+              <span id="statusText">未连接</span>
+            </span>
+            <span id="configDisplay"></span>
+          </div>
+        </header>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <!-- 消息页面 -->
+        <div id="page-messages" class="page" style="display: block;">
+          <div class="card">
+            <div id="messages">
+              <p class="empty-state">连接到 Gotify 服务器后查看消息</p>
+            </div>
+          </div>
+        </div>
+
+<!-- 服务器页面 -->
+        <div class="page" id="page-servers" style="display: none;">
+          <h2>服务器配置</h2>
+          <div id="configList"></div>
+
+          <!-- 悬浮新增按钮 -->
+          <button class="fab-add" onclick="showAddConfigModal()">
+            <i class="ri-add-line"></i>
+          </button>
+        </div>
+
+        <!-- 设置页面 -->
+        <div class="page" id="page-settings" style="display: none;">
+          <h2>应用设置</h2>
+          <div class="card">
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="enableAutostart">
+                <span>开机启动</span>
+              </label>
+              <small style="color: #666; display: block; margin-top: 5px;">应用随系统自动启动</small>
+            </div>
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="minimizeToTray">
+                <span>关闭后在托盘运行</span>
+              </label>
+              <small style="color: #666; display: block; margin-top: 5px;">关闭窗口时最小化到系统托盘</small>
+            </div>
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="silentStart">
+                <span>静默启动</span>
+              </label>
+              <small style="color: #666; display: block; margin-top: 5px;">启动时不显示主窗口</small>
+            </div>
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="enableNotifications">
+                <span>启用系统通知</span>
+              </label>
+              <small style="color: #666; display: block; margin-top: 5px;">收到新消息时弹出系统通知</small>
+            </div>
+            <div class="btn-group">
+              <button class="btn-primary" onclick="saveAppSettings()">保存设置</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 新增/编辑配置模态框 -->
+        <div class="modal" id="configModal">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h3 id="modalTitle">新增配置</h3>
+              <button class="modal-close" onclick="closeConfigModal()">
+                <i class="ri-close-line"></i>
+              </button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label for="modalServerUrl">服务器 URL</label>
+                <input id="modalServerUrl" type="url" placeholder="https://your-gotify.example.com" />
+              </div>
+              <div class="form-group">
+                <label for="modalToken">访问令牌 (Token)</label>
+                <input id="modalToken" type="password" placeholder="输入您的 Gotify 访问令牌" />
+              </div>
+              <div class="form-group">
+                <label for="modalConfigName">配置名称</label>
+                <input id="modalConfigName" type="text" placeholder="例如：我的服务器" />
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn-secondary" onclick="closeConfigModal()">取消</button>
+              <button class="btn-primary" onclick="saveConfigFromModal()">保存</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <script src="main.js"></script>
+  <script type="module" src="main.js"></script>
 </body>
 </html>

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Event Test</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h1>事件测试</h1>
+    <button onclick="testEmit()">发送测试事件</button>
+    <div id="log" style="background: #f0f0f0; padding: 10px; margin-top: 10px; font-family: monospace;"></div>
+
+    <script>
+        const { listen, emit } = window.__TAURI__.event;
+
+        // 监听 new-message 事件
+        listen('new-message', (event) => {
+            log('✓ 收到 new-message 事件:', event.payload);
+        });
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${time}] ${message}<br>`;
+            console.log(message);
+        }
+
+        function testEmit() {
+            log('发送测试事件...');
+            emit('new-message', {
+                id: 999,
+                message: '测试消息',
+                title: '测试',
+                priority: 1,
+                timestamp: new Date().toISOString(),
+                app_id: 1
+            }).then(() => {
+                log('✓ 事件发送成功');
+            }).catch(e => {
+                log('✗ 事件发送失败:', e);
+            });
+        }
+
+        log('页面已加载，等待事件...');
+    </script>
+</body>
+</html>

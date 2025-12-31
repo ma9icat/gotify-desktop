@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Debug</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h1>WebSocket 连接测试</h1>
+    <div>
+        <label>服务器 URL:</label>
+        <input type="text" id="serverUrl" value="https://your-gotify-server.com" style="width: 300px;">
+    </div>
+    <div>
+        <label>Token:</label>
+        <input type="password" id="token" value="" style="width: 300px;">
+    </div>
+    <div>
+        <button onclick="connect()">连接</button>
+        <button onclick="disconnect()">断开</button>
+    </div>
+    <div>
+        <h3>状态:</h3>
+        <div id="status" style="color: gray;">未连接</div>
+    </div>
+    <div>
+        <h3>日志:</h3>
+        <div id="log" style="background: #f0f0f0; padding: 10px; height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px;"></div>
+    </div>
+
+    <script>
+        let ws = null;
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${time}] ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function connect() {
+            const serverUrl = document.getElementById('serverUrl').value.trim();
+            const token = document.getElementById('token').value.trim();
+
+            if (!serverUrl || !token) {
+                log('错误: 请输入服务器 URL 和 Token');
+                return;
+            }
+
+            // 构建 WebSocket URL
+            const wsUrl = `${serverUrl.replace('http://', 'ws://').replace('https://', 'wss://')}/stream?token=${token}`;
+
+            log(`正在连接到: ${wsUrl}`);
+            document.getElementById('status').textContent = '连接中...';
+            document.getElementById('status').style.color = 'blue';
+
+            try {
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    log('✓ WebSocket 连接成功');
+                    document.getElementById('status').textContent = '已连接';
+                    document.getElementById('status').style.color = 'green';
+                };
+
+                ws.onmessage = (event) => {
+                    log(`✓ 收到消息: ${event.data}`);
+                    try {
+                        const msg = JSON.parse(event.data);
+                        log(`  解析: id=${msg.id}, title=${msg.title}, message=${msg.message}`);
+                    } catch (e) {
+                        log(`  无法解析 JSON: ${e}`);
+                    }
+                };
+
+                ws.onerror = (error) => {
+                    log(`✗ WebSocket 错误: ${error}`);
+                    document.getElementById('status').textContent = '错误';
+                    document.getElementById('status').style.color = 'red';
+                };
+
+                ws.onclose = (event) => {
+                    log(`WebSocket 关闭: code=${event.code}, reason=${event.reason}`);
+                    document.getElementById('status').textContent = '已断开';
+                    document.getElementById('status').style.color = 'gray';
+                };
+            } catch (e) {
+                log(`✗ 连接失败: ${e}`);
+                document.getElementById('status').textContent = '失败';
+                document.getElementById('status').style.color = 'red';
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+                log('主动断开连接');
+            }
+        }
+    </script>
+</body>
+</html>

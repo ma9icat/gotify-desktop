@@ -1,15 +1,16 @@
-
 {
   "name": "gotify-desktop",
   "version": "0.1.0",
   "description": "Gotify desktop client",
   "scripts": {
     "tauri": "tauri",
-    "dev": "tauri dev",
-    "build": "tauri build"
+    "dev": "serve src -l 1420 & tauri dev",
+    "build": "tauri build",
+    "build:msi": "tauri build -b msi",
+    "build:frontend": "echo 'No build step needed for static files'"
   },
-  "dependencies": {},
   "devDependencies": {
-    "@tauri-apps/cli": "^2.0.0"
+    "@tauri-apps/cli": "^2.0.0",
+    "serve": "^14.2.5"
   }
 }

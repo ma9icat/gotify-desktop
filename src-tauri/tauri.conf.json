@@ -5,8 +5,9 @@
   "identifier": "com.gotify.desktop",
   "build": {
     "devUrl": "http://localhost:1420",
-    "beforeDevCommand": "",
+    "beforeDevCommand": "serve src -l 1420",
     "beforeBuildCommand": "",
+    "frontendDist": "../src",
     "features": []
   },
   "app": {
@@ -25,12 +26,17 @@
       }
     ],
     "security": {
-      "csp": null
-    }
+      "csp": null,
+      "dangerousDisableAssetCspModification": false
+    },
+    "withGlobalTauri": true
   },
   "bundle": {
-    "active": true,
-    "targets": "all",
-    "identifier": "com.gotify.desktop"
+    "targets": ["msi"],
+    "publisher": "Gotify Desktop",
+    "copyright": "Copyright © 2025",
+    "icon": [
+      "icons/icon.ico"
+    ]
   }
 }
