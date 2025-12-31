@@ -1,12 +1,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod gotify;
+mod tests;
 
 use crate::gotify::GotifyClient;
-use log::{info, error, warn};
-use std::sync::Mutex;
 use futures_util::StreamExt;
-use tauri::{State, Emitter, Manager};
+use log::{debug, error, info, warn};
+use std::sync::Mutex;
+use tauri::{Emitter, Manager, State};
 use tokio::sync::mpsc;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -59,6 +60,7 @@ pub struct AppSettings {
     pub minimize_to_tray: bool,
     pub silent_start: bool,
     pub enable_notifications: bool,
+    pub log_level: String,
 }
 
 impl AppState {
@@ -126,23 +128,35 @@ struct UpdateConfigRequest {
 
 fn generate_id() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
-    format!("{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis())
+    format!(
+        "{}",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis()
+    )
 }
 
-fn get_config_path() -> std::path::PathBuf {
-    // 使用用户目录下的 .config/.gotify-desktop 文件夹
+const APP_CONFIG_DIR: &str = ".gotify-desktop";
+const CONFIG_FILE: &str = "config.json";
+
+fn get_config_dir() -> std::path::PathBuf {
     let mut path = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
     path.push(".config");
-    path.push(".gotify-desktop");
-    
-    // 确保目录存在
+    path.push(APP_CONFIG_DIR);
+
     if let Err(e) = std::fs::create_dir_all(&path) {
         error!("Failed to create config directory: {}", e);
     } else {
         info!("Config directory: {:?}", path);
     }
-    
-    path.push("config.json");
+
+    path
+}
+
+fn get_config_path() -> std::path::PathBuf {
+    let mut path = get_config_dir();
+    path.push(CONFIG_FILE);
     path
 }
 
@@ -190,14 +204,19 @@ fn load_configs() -> Vec<ServerConfig> {
     load_app_config().servers
 }
 
-fn save_configs(configs: &Vec<ServerConfig>) -> Result<(), String> {
+fn save_configs(configs: &[ServerConfig]) -> Result<(), String> {
     let mut config = load_app_config();
-    config.servers = configs.clone();
+    config.servers = configs.to_owned();
     save_app_config(&config)
 }
 
 #[tauri::command]
-async fn save_config(_app_handle: tauri::AppHandle, name: String, server_url: String, token: String) -> Result<ApiResponse<()>, String> {
+async fn save_config(
+    _app_handle: tauri::AppHandle,
+    name: String,
+    server_url: String,
+    token: String,
+) -> Result<ApiResponse<()>, String> {
     let mut configs = load_configs();
 
     let now = chrono::Utc::now().to_rfc3339();
@@ -218,12 +237,17 @@ async fn save_config(_app_handle: tauri::AppHandle, name: String, server_url: St
 }
 
 #[tauri::command]
-async fn get_configs(_app_handle: tauri::AppHandle) -> Result<ApiResponse<Vec<ServerConfig>>, String> {
+async fn get_configs(
+    _app_handle: tauri::AppHandle,
+) -> Result<ApiResponse<Vec<ServerConfig>>, String> {
     Ok(ApiResponse::success(load_configs()))
 }
 
 #[tauri::command]
-async fn delete_config(_app_handle: tauri::AppHandle, id: String) -> Result<ApiResponse<()>, String> {
+async fn delete_config(
+    _app_handle: tauri::AppHandle,
+    id: String,
+) -> Result<ApiResponse<()>, String> {
     let mut configs = load_configs();
     configs.retain(|c| c.id != id);
     save_configs(&configs)?;
@@ -232,7 +256,10 @@ async fn delete_config(_app_handle: tauri::AppHandle, id: String) -> Result<ApiR
 }
 
 #[tauri::command]
-async fn update_config(_app_handle: tauri::AppHandle, req: UpdateConfigRequest) -> Result<ApiResponse<()>, String> {
+async fn update_config(
+    _app_handle: tauri::AppHandle,
+    req: UpdateConfigRequest,
+) -> Result<ApiResponse<()>, String> {
     let mut configs = load_configs();
 
     // 更新配置
@@ -250,7 +277,10 @@ async fn update_config(_app_handle: tauri::AppHandle, req: UpdateConfigRequest) 
 }
 
 #[tauri::command]
-async fn set_default_config(_app_handle: tauri::AppHandle, id: String) -> Result<ApiResponse<()>, String> {
+async fn set_default_config(
+    _app_handle: tauri::AppHandle,
+    id: String,
+) -> Result<ApiResponse<()>, String> {
     let mut configs = load_configs();
 
     // 更新最后使用时间
@@ -265,7 +295,9 @@ async fn set_default_config(_app_handle: tauri::AppHandle, id: String) -> Result
 }
 
 #[tauri::command]
-async fn get_default_config(_app_handle: tauri::AppHandle) -> Result<ApiResponse<Option<ServerConfig>>, String> {
+async fn get_default_config(
+    _app_handle: tauri::AppHandle,
+) -> Result<ApiResponse<Option<ServerConfig>>, String> {
     let configs = load_configs();
 
     // 获取最后使用的配置
@@ -277,91 +309,105 @@ async fn get_default_config(_app_handle: tauri::AppHandle) -> Result<ApiResponse
     Ok(ApiResponse::success(last_config))
 }
 
+async fn start_websocket_listener(app_handle: tauri::AppHandle, base_url: String, token: String) {
+    info!("Starting WebSocket task...");
+    let ws_url = format!(
+        "{}/stream?token={}",
+        base_url
+            .replace("http://", "ws://")
+            .replace("https://", "wss://"),
+        token
+    );
+    info!("Connecting to WebSocket: {}", ws_url);
+
+    loop {
+        match tokio_tungstenite::connect_async(&ws_url).await {
+            Ok((ws_stream, response)) => {
+                info!("WebSocket connected, status: {:?}", response.status());
+                let (_, mut read) = ws_stream.split();
+
+                while let Some(result) = read.next().await {
+                    match result {
+                        Ok(msg) => {
+                            if msg.is_text() {
+                                let text = msg.to_text().unwrap_or("");
+                                info!("WebSocket received text: {}", text);
+                                if let Ok(value) = serde_json::from_str::<serde_json::Value>(text) {
+                                    info!("Parsed JSON: {:?}", value);
+                                    if let Some(msg_obj) = value.as_object() {
+                                        if let Ok(message) = serde_json::from_value::<gotify::Message>(
+                                            serde_json::Value::Object(msg_obj.clone()),
+                                        ) {
+                                            info!(
+                                                "Received message via WebSocket: id={}",
+                                                message.id
+                                            );
+                                            if let Err(e) = app_handle.emit("new-message", &message)
+                                            {
+                                                error!("Failed to emit message event: {}", e);
+                                            }
+                                        } else {
+                                            warn!("Failed to parse message from JSON");
+                                        }
+                                    }
+                                } else {
+                                    warn!("Failed to parse JSON from: {}", text);
+                                }
+                            } else if msg.is_close() {
+                                info!("WebSocket close message received");
+                                break;
+                            }
+                        }
+                        Err(e) => {
+                            error!("WebSocket error: {}", e);
+                            break;
+                        }
+                    }
+                }
+                info!("WebSocket connection closed, reconnecting in 5 seconds...");
+                tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+            }
+            Err(e) => {
+                error!(
+                    "WebSocket connection failed: {}, retrying in 5 seconds...",
+                    e
+                );
+                tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+            }
+        }
+    }
+}
+
 #[tauri::command]
-async fn connect_to_gotify(state: State<'_, AppState>, app_handle: tauri::AppHandle, req: ConnectRequest) -> Result<ApiResponse<()>, String> {
-    info!("Attempting to connect to Gotify server at: {}", req.server_url);
+async fn connect_to_gotify(
+    state: State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+    req: ConnectRequest,
+) -> Result<ApiResponse<()>, String> {
+    debug!(
+        "Attempting to connect to Gotify server at: {}",
+        req.server_url
+    );
 
     match GotifyClient::new(&req.server_url, &req.token) {
         Ok(mut client) => {
             info!("GotifyClient created successfully");
 
-            // 创建消息通道
             let (tx, mut rx) = mpsc::unbounded_channel::<gotify::Message>();
-
-            // 设置消息发送器
             client.set_message_sender(tx.clone());
             info!("Message sender set");
 
-            // 获取 WebSocket 连接所需的参数
             let base_url = client.get_base_url().to_string();
             let token = client.get_token().to_string();
 
-            // 启动 WebSocket 监听任务
             let app_clone = app_handle.clone();
             tokio::spawn(async move {
-                info!("Starting WebSocket task...");
-                let ws_url = format!(
-                    "{}/stream?token={}",
-                    base_url.replace("http://", "ws://").replace("https://", "wss://"),
-                    token
-                );
-                info!("Connecting to WebSocket: {}", ws_url);
-
-                loop {
-                    match tokio_tungstenite::connect_async(&ws_url).await {
-                        Ok((ws_stream, response)) => {
-                            info!("WebSocket connected, status: {:?}", response.status());
-                            let (_, mut read) = ws_stream.split();
-
-                            while let Some(result) = read.next().await {
-                                match result {
-                                    Ok(msg) => {
-                                        if msg.is_text() {
-                                            let text = msg.to_text().unwrap_or("");
-                                            info!("WebSocket received text: {}", text);
-                                            if let Ok(value) = serde_json::from_str::<serde_json::Value>(text) {
-                                                info!("Parsed JSON: {:?}", value);
-                                                if let Some(msg_obj) = value.as_object() {
-                                                    if let Ok(message) = serde_json::from_value::<gotify::Message>(serde_json::Value::Object(msg_obj.clone())) {
-                                                        info!("Received message via WebSocket: id={}", message.id);
-                                                        // 直接发送到前端
-                                                        if let Err(e) = app_clone.emit("new-message", &message) {
-                                                            error!("Failed to emit message event: {}", e);
-                                                        }
-                                                    } else {
-                                                        warn!("Failed to parse message from JSON");
-                                                    }
-                                                }
-                                            } else {
-                                                warn!("Failed to parse JSON from: {}", text);
-                                            }
-                                        } else if msg.is_close() {
-                                            info!("WebSocket close message received");
-                                            break;
-                                        }
-                                    }
-                                    Err(e) => {
-                                        error!("WebSocket error: {}", e);
-                                        break;
-                                    }
-                                }
-                            }
-                            info!("WebSocket connection closed, reconnecting in 5 seconds...");
-                            tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-                        }
-                        Err(e) => {
-                            error!("WebSocket connection failed: {}, retrying in 5 seconds...", e);
-                            tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-                        }
-                    }
-                }
+                start_websocket_listener(app_clone, base_url, token).await;
             });
 
-            // 保存客户端
             state.set_client(client, tx);
             info!("Client saved to state");
 
-            // 启动消息转发任务
             let app = app_handle.clone();
             tokio::spawn(async move {
                 while let Some(message) = rx.recv().await {
@@ -383,12 +429,20 @@ async fn connect_to_gotify(state: State<'_, AppState>, app_handle: tauri::AppHan
 }
 
 #[tauri::command]
-async fn fetch_messages(state: State<'_, AppState>, since: Option<u64>, limit: Option<u64>, offset: Option<u64>) -> Result<ApiResponse<Vec<gotify::Message>>, String> {
-    info!("fetch_messages called with since: {:?}, limit: {:?}, offset: {:?}", since, limit, offset);
+async fn fetch_messages(
+    state: State<'_, AppState>,
+    since: Option<u64>,
+    limit: Option<u64>,
+    offset: Option<u64>,
+) -> Result<ApiResponse<Vec<gotify::Message>>, String> {
+    debug!(
+        "fetch_messages called with since: {:?}, limit: {:?}, offset: {:?}",
+        since, limit, offset
+    );
 
     match state.get_client() {
         Ok(client) => {
-            info!("Client found, fetching messages...");
+            debug!("Client found, fetching messages...");
             match client.get_messages(since, limit, offset).await {
                 Ok(messages) => {
                     info!("Successfully fetched {} messages", messages.len());
@@ -414,14 +468,15 @@ async fn disconnect_gotify(state: State<'_, AppState>) -> Result<ApiResponse<()>
 }
 
 #[tauri::command]
-async fn delete_message(state: State<'_, AppState>, message_id: u64) -> Result<ApiResponse<()>, String> {
+async fn delete_message(
+    state: State<'_, AppState>,
+    message_id: u64,
+) -> Result<ApiResponse<()>, String> {
     match state.get_client() {
-        Ok(client) => {
-            match client.delete_message(message_id).await {
-                Ok(_) => Ok(ApiResponse::success(())),
-                Err(e) => Ok(ApiResponse::error(e.to_string())),
-            }
-        }
+        Ok(client) => match client.delete_message(message_id).await {
+            Ok(_) => Ok(ApiResponse::success(())),
+            Err(e) => Ok(ApiResponse::error(e.to_string())),
+        },
         Err(e) => Ok(ApiResponse::error(e.to_string())),
     }
 }
@@ -429,38 +484,39 @@ async fn delete_message(state: State<'_, AppState>, message_id: u64) -> Result<A
 #[tauri::command]
 async fn get_health(state: State<'_, AppState>) -> Result<ApiResponse<bool>, String> {
     match state.get_client() {
-        Ok(client) => {
-            match client.get_health().await {
-                Ok(healthy) => Ok(ApiResponse::success(healthy)),
-                Err(e) => Ok(ApiResponse::error(e.to_string())),
-            }
-        }
+        Ok(client) => match client.get_health().await {
+            Ok(healthy) => Ok(ApiResponse::success(healthy)),
+            Err(e) => Ok(ApiResponse::error(e.to_string())),
+        },
         Err(e) => Ok(ApiResponse::error(e.to_string())),
     }
 }
 
 #[tauri::command]
-async fn create_message(state: State<'_, AppState>, title: String, message: String, priority: i32) -> Result<ApiResponse<gotify::Message>, String> {
+async fn create_message(
+    state: State<'_, AppState>,
+    title: String,
+    message: String,
+    priority: i32,
+) -> Result<ApiResponse<gotify::Message>, String> {
     match state.get_client() {
-        Ok(client) => {
-            match client.create_message(&title, &message, priority).await {
-                Ok(msg) => Ok(ApiResponse::success(msg)),
-                Err(e) => Ok(ApiResponse::error(e.to_string())),
-            }
-        }
+        Ok(client) => match client.create_message(&title, &message, priority).await {
+            Ok(msg) => Ok(ApiResponse::success(msg)),
+            Err(e) => Ok(ApiResponse::error(e.to_string())),
+        },
         Err(e) => Ok(ApiResponse::error(e.to_string())),
     }
 }
 
 #[tauri::command]
-async fn get_applications(state: State<'_, AppState>) -> Result<ApiResponse<Vec<gotify::Application>>, String> {
+async fn get_applications(
+    state: State<'_, AppState>,
+) -> Result<ApiResponse<Vec<gotify::Application>>, String> {
     match state.get_client() {
-        Ok(client) => {
-            match client.get_applications().await {
-                Ok(apps) => Ok(ApiResponse::success(apps)),
-                Err(e) => Ok(ApiResponse::error(e.to_string())),
-            }
-        }
+        Ok(client) => match client.get_applications().await {
+            Ok(apps) => Ok(ApiResponse::success(apps)),
+            Err(e) => Ok(ApiResponse::error(e.to_string())),
+        },
         Err(e) => Ok(ApiResponse::error(e.to_string())),
     }
 }
@@ -473,7 +529,10 @@ async fn get_app_settings(state: State<'_, AppState>) -> Result<ApiResponse<AppS
 
 // 更新应用设置
 #[tauri::command]
-async fn update_app_settings(state: State<'_, AppState>, settings: AppSettings) -> Result<ApiResponse<()>, String> {
+async fn update_app_settings(
+    state: State<'_, AppState>,
+    settings: AppSettings,
+) -> Result<ApiResponse<()>, String> {
     state.set_settings(settings.clone());
     save_settings_to_file(&settings)?;
     Ok(ApiResponse::success(()))
@@ -481,13 +540,16 @@ async fn update_app_settings(state: State<'_, AppState>, settings: AppSettings) 
 
 // 切换开机启动
 #[tauri::command]
-async fn toggle_autostart(app_handle: tauri::AppHandle, enabled: bool) -> Result<ApiResponse<bool>, String> {
+async fn toggle_autostart(
+    app_handle: tauri::AppHandle,
+    enabled: bool,
+) -> Result<ApiResponse<bool>, String> {
     use tauri_plugin_autostart::ManagerExt;
 
     info!("Toggling autostart: enabled={}", enabled);
-    
+
     let autostart_manager = app_handle.autolaunch();
-    
+
     if enabled {
         info!("Enabling autostart...");
         if let Err(e) = autostart_manager.enable() {
@@ -501,7 +563,9 @@ async fn toggle_autostart(app_handle: tauri::AppHandle, enabled: bool) -> Result
         if let Err(e) = autostart_manager.disable() {
             // 检查是否是"文件不存在"错误，如果是则忽略
             let error_str = e.to_string();
-            if error_str.contains("找不到指定的文件") || error_str.contains("The system cannot find the file") {
+            if error_str.contains("找不到指定的文件")
+                || error_str.contains("The system cannot find the file")
+            {
                 info!("Autostart file does not exist, skipping disable");
             } else {
                 error!("Failed to disable autostart: {}", e);
@@ -547,7 +611,10 @@ async fn test_websocket(state: State<'_, AppState>) -> Result<ApiResponse<String
         Ok(client) => {
             let ws_url = format!(
                 "{}/stream?token={}",
-                client.get_base_url().replace("http://", "ws://").replace("https://", "wss://"),
+                client
+                    .get_base_url()
+                    .replace("http://", "ws://")
+                    .replace("https://", "wss://"),
                 client.get_token()
             );
             info!("Test WebSocket URL: {}", ws_url);
@@ -584,7 +651,11 @@ async fn test_emit_event(app: tauri::AppHandle) -> Result<ApiResponse<String>, S
 
 // 发送系统通知
 #[tauri::command]
-async fn send_notification(app: tauri::AppHandle, title: String, body: String) -> Result<ApiResponse<()>, String> {
+async fn send_notification(
+    app: tauri::AppHandle,
+    title: String,
+    body: String,
+) -> Result<ApiResponse<()>, String> {
     use tauri_plugin_notification::NotificationExt;
     app.notification()
         .builder()
@@ -596,14 +667,29 @@ async fn send_notification(app: tauri::AppHandle, title: String, body: String) -
 }
 
 fn main() {
-    // 初始化日志系统
-    env_logger::Builder::from_default_env()
-        .filter_level(log::LevelFilter::Info)
-        .init();
-
     // 加载设置
     let settings = load_settings();
+
+    // 初始化日志系统，使用配置中的日志等级
+    let log_level = settings.log_level.to_lowercase();
+    let level_filter = match log_level.as_str() {
+        "trace" => log::LevelFilter::Trace,
+        "debug" => log::LevelFilter::Debug,
+        "info" => log::LevelFilter::Info,
+        "warn" => log::LevelFilter::Warn,
+        "error" => log::LevelFilter::Error,
+        "off" => log::LevelFilter::Off,
+        _ => log::LevelFilter::Info, // 默认 info
+    };
+
+    env_logger::Builder::from_default_env()
+        .filter_level(level_filter)
+        .filter_module("chromium", log::LevelFilter::Error) // 抑制 Chromium 的非错误日志
+        .filter_module("ui::gfx", log::LevelFilter::Error) // 抑制 UI/GFX 的 INFO 日志
+        .init();
+
     info!("Loaded settings: {:?}", settings);
+    info!("Log level set to: {:?}", level_filter);
 
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::new().build())
@@ -629,26 +715,24 @@ fn main() {
                 .map_err(|e| e.to_string())?;
             let quit = tauri::menu::MenuItem::with_id(app, "quit", "退出", true, None::<&str>)
                 .map_err(|e| e.to_string())?;
-            let menu = tauri::menu::Menu::with_items(app, &[&show, &quit])
-                .map_err(|e| e.to_string())?;
+            let menu =
+                tauri::menu::Menu::with_items(app, &[&show, &quit]).map_err(|e| e.to_string())?;
 
             let _tray = tauri::tray::TrayIconBuilder::with_id("main-tray")
                 .menu(&menu)
                 .tooltip("Gotify Desktop")
                 .icon(app.default_window_icon().unwrap().clone())
-                .on_menu_event(move |app, event| {
-                    match event.id.as_ref() {
-                        "show" => {
-                            if let Some(window) = app.get_webview_window("main") {
-                                let _ = window.show();
-                                let _ = window.set_focus();
-                            }
+                .on_menu_event(move |app, event| match event.id.as_ref() {
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
                         }
-                        "quit" => {
-                            std::process::exit(0);
-                        }
-                        _ => {}
                     }
+                    "quit" => {
+                        std::process::exit(0);
+                    }
+                    _ => {}
                 })
                 .build(app)
                 .map_err(|e| e.to_string())?;

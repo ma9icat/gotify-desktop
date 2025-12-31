@@ -849,6 +849,18 @@
               </label>
               <small style="color: #666; display: block; margin-top: 5px;">收到新消息时弹出系统通知</small>
             </div>
+            <div class="form-group">
+              <label for="logLevel">日志等级</label>
+              <select id="logLevel" style="width: 100%; padding: 10px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem;">
+                <option value="trace">Trace - 最详细</option>
+                <option value="debug">Debug - 调试信息</option>
+                <option value="info" selected>Info - 一般信息</option>
+                <option value="warn">Warn - 警告</option>
+                <option value="error">Error - 仅错误</option>
+                <option value="off">Off - 关闭日志</option>
+              </select>
+              <small style="color: #666; display: block; margin-top: 5px;">控制日志输出的详细程度（修改后需要重启应用）</small>
+            </div>
             <div class="btn-group">
               <button class="btn-primary" onclick="saveAppSettings()">保存设置</button>
             </div>

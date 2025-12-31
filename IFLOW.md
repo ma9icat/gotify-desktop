@@ -4,6 +4,8 @@
 
 Gotify Desktop 是一个跨平台的 Gotify 服务器桌面客户端应用，使用 Rust + Tauri 2.x 框架开发。该项目旨在为用户提供一个原生桌面应用来连接和交互 Gotify 消息服务器，支持实时消息推送、消息管理、多服务器配置等功能。
 
+**仓库地址**: https://github.com/ma9icat/gotify-desktop
+
 **技术栈：**
 - **前端**：原生 HTML5/CSS3 + JavaScript (ES6+)（src/ 目录）
 - **后端/框架**：Tauri 2.x（Rust） + Rust crates（src-tauri/ 目录）
@@ -121,14 +123,23 @@ gotify-desktop/
 - **隐藏窗口** (`hide_window`): 隐藏主窗口
 - 侧边栏折叠/展开功能
 
-#### 8. 健康检查 (`get_health` 方法)
+#### 8. 系统托盘
+- **托盘图标**：应用启动时自动创建系统托盘图标
+- **托盘菜单**：包含"显示窗口"和"退出"选项
+- **窗口关闭行为**：当 `minimize_to_tray` 设置启用时，关闭窗口会最小化到托盘而不是退出应用
+
+#### 9. 健康检查 (`get_health` 方法)
 - 检查 Gotify 服务器健康状态
 
-#### 9. 应用列表管理 (`get_applications` 命令)
+#### 10. 应用列表管理 (`get_applications` 命令)
 - 获取已注册的应用列表
 
-#### 10. 创建消息 (`create_message` 命令)
+#### 11. 创建消息 (`create_message` 命令)
 - 通过 API 创建新消息
+
+#### 12. 测试命令
+- **test_websocket**: 测试 WebSocket 连接，返回 WebSocket URL（用于调试）
+- **test_emit_event**: 测试事件发送到前端（用于调试）
 
 ### 消息优先级显示
 
@@ -231,12 +242,15 @@ pub struct ServerConfig {
 - `AppState::get_client()` - 获取客户端
 - `AppState::get_settings()` - 获取设置
 - `AppState::set_settings()` - 更新设置
+- `start_websocket_listener()` - WebSocket 监听和自动重连
+- `get_config_dir()` - 获取配置目录路径
+- `get_config_path()` - 获取配置文件路径
 
 **Tauri 命令：**
 | 命令 | 参数 | 返回 | 说明 |
 |------|------|------|------|
-| `connect_to_gotify` | `{ server_url: string, token: string }` | `ApiResponse<()>` | 连接到 Gotify 服务器 |
-| `fetch_messages` | `since: Option<u64>, limit: Option<u64>, offset: Option<u64>` | `ApiResponse<Vec<Message>>` | 获取消息列表 |
+| `connect_to_gotify` | `{ server_url: string, token: string }` | `ApiResponse<()>` | 连接到 Gotify 服务器（支持 WebSocket） |
+| `fetch_messages` | `since: Option<u64>, limit: Option<u64>, offset: Option<u64>` | `ApiResponse<Vec<Message>>` | 获取消息列表（支持分页和增量获取） |
 | `disconnect_gotify` | 无 | `ApiResponse<()>` | 断开连接 |
 | `delete_message` | `messageId: u64` | `ApiResponse<()>` | 删除消息 |
 | `get_health` | 无 | `ApiResponse<bool>` | 健康检查 |
@@ -250,10 +264,12 @@ pub struct ServerConfig {
 | `get_default_config` | 无 | `ApiResponse<Option<ServerConfig>>` | 获取默认配置 |
 | `get_app_settings` | 无 | `ApiResponse<AppSettings>` | 获取应用设置 |
 | `update_app_settings` | `settings: AppSettings` | `ApiResponse<()>` | 更新应用设置 |
-| `toggle_autostart` | `enabled: bool` | `ApiResponse<bool>`` | 切换开机启动 |
+| `toggle_autostart` | `enabled: bool` | `ApiResponse<bool>` | 切换开机启动 |
 | `show_window` | 无 | `ApiResponse<()>` | 显示窗口 |
 | `hide_window` | 无 | `ApiResponse<()>` | 隐藏窗口 |
 | `send_notification` | `title: string, body: string` | `ApiResponse<()>` | 发送系统通知 |
+| `test_websocket` | 无 | `ApiResponse<String>` | 测试 WebSocket 连接（返回 WebSocket URL） |
+| `test_emit_event` | 无 | `ApiResponse<String>` | 测试事件发送（用于调试） |
 
 **gotify.rs:**
 
@@ -352,8 +368,7 @@ pub struct Application {
 - **Linux/macOS**: `~/.config/.gotify-desktop/`
 
 **配置文件：**
-- `config.json` - 服务器配置列表
-- `settings.json` - 应用设置
+- `config.json` - 统一配置文件（包含服务器配置列表和应用设置）
 
 ### Tauri 配置 (tauri.conf.json)
 
@@ -450,29 +465,35 @@ opt-level = 0
 - **单元测试**：`src-tauri/src/tests.rs`
 - 运行方式：`cd src-tauri && cargo test`
 
+### 代码优化
+
+- **WebSocket 重连**：提取为独立函数 `start_websocket_listener`，支持自动重连（5秒间隔）
+- **配置路径管理**：使用常量 `APP_CONFIG_DIR` 和 `CONFIG_FILE` 管理路径
+- **错误处理**：移除未使用的错误变体，简化错误类型
+- **测试覆盖**：添加消息序列化、优先级测试等用例
+
 ---
 
 ## 待实现功能
 
-1. **系统托盘功能**
-   - 完整的托盘菜单
-   - 托盘图标和右键菜单
-   - 托盘通知
-
-2. **暗色模式**
+1. **暗色模式**
    - CSS 变量主题切换
    - 持久化主题偏好
 
-3. **应用列表管理前端集成**
+2. **应用列表管理前端集成**
    - 显示和管理应用
    - 应用信息查看
 
-4. **消息搜索**
+3. **消息搜索**
    - 按关键词搜索消息
    - 按日期范围筛选
 
-5. **消息导出**
+4. **消息导出**
    - 导出为 JSON/CSV 格式
+
+5. **消息详情查看**
+   - 查看完整消息内容
+   - 显示消息元数据
 
 ---
 
@@ -481,15 +502,18 @@ opt-level = 0
 | 版本 | 更新内容 |
 |------|----------|
 | 0.1.0 | 初始版本，基本连接和消息获取 |
-| 0.2.0 | WebSocket 实时消息、多服务器配置、应用设置、系统通知 |
+| 0.2.0 | WebSocket 实时消息、多服务器配置、应用设置、系统通知、系统托盘、侧边栏折叠 |
+| 0.3.0 | 代码优化：WebSocket 重连逻辑提取、配置路径管理优化、测试覆盖率提升 |
 
 ---
 
 ## 注意事项
 
 1. **前端为纯静态文件**，无需额外构建步骤
-2. **WebSocket 实时消息已实现**并已在前端集成
+2. **WebSocket 实时消息已实现**并已在前端集成（自动重连）
 3. **多服务器配置已实现**支持保存、编辑、删除配置
 4. **应用设置已实现**包括开机启动、托盘运行、静默启动、系统通知
-5. 建议使用 `npm run dev` 进行开发调试
-6. 配置文件存储在用户目录下的 `.config/.gotify-desktop` 文件夹
+5. **系统托盘已实现**包含托盘图标和菜单
+6. 建议使用 `npm run dev` 进行开发调试
+7. 配置文件存储在用户目录下的 `.config/.gotify-desktop/config.json`
+8. 侧边栏支持折叠，状态会保存到 localStorage

@@ -3,8 +3,8 @@ use reqwest::{Client, Error as ReqwestError};
 use serde::Serialize;
 use serde_json::Error as JsonError;
 use thiserror::Error;
-use url::Url;
 use tokio::sync::mpsc;
+use url::Url;
 
 #[derive(Debug, Error)]
 pub enum GotifyError {
@@ -28,11 +28,13 @@ impl GotifyError {
     fn from_status_code(status: reqwest::StatusCode, body: String) -> Self {
         match status {
             reqwest::StatusCode::UNAUTHORIZED => Self::AuthFailed(body),
-            reqwest::StatusCode::FORBIDDEN => Self::AuthFailed("Access forbidden. Check your token permissions.".to_string()),
-            reqwest::StatusCode::NOT_FOUND => Self::NotFound(body),
-            reqwest::StatusCode::INTERNAL_SERVER_ERROR | reqwest::StatusCode::BAD_GATEWAY | reqwest::StatusCode::SERVICE_UNAVAILABLE => {
-                Self::ServerError(body)
+            reqwest::StatusCode::FORBIDDEN => {
+                Self::AuthFailed("Access forbidden. Check your token permissions.".to_string())
             }
+            reqwest::StatusCode::NOT_FOUND => Self::NotFound(body),
+            reqwest::StatusCode::INTERNAL_SERVER_ERROR
+            | reqwest::StatusCode::BAD_GATEWAY
+            | reqwest::StatusCode::SERVICE_UNAVAILABLE => Self::ServerError(body),
             _ => Self::RequestError(format!("HTTP {}: {}", status, body)),
         }
     }
@@ -110,7 +112,12 @@ impl GotifyClient {
             format!("{}/{}?token={}", self.base_url, endpoint, self.token)
         };
         info!("GET {}", url);
-        let resp = self.client.get(&url).send().await.map_err(GotifyError::NetworkError)?;
+        let resp = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .map_err(GotifyError::NetworkError)?;
         Ok(resp)
     }
 
@@ -121,7 +128,11 @@ impl GotifyClient {
             format!("{}/{}?token={}", self.base_url, endpoint, self.token)
         };
         info!("DELETE {}", url);
-        self.client.delete(&url).send().await.map_err(GotifyError::NetworkError)?;
+        self.client
+            .delete(&url)
+            .send()
+            .await
+            .map_err(GotifyError::NetworkError)?;
         Ok(())
     }
 
@@ -132,7 +143,13 @@ impl GotifyClient {
             format!("{}/{}?token={}", self.base_url, endpoint, self.token)
         };
         info!("POST {}", url);
-        let resp = self.client.post(&url).body(body.to_string()).send().await.map_err(GotifyError::NetworkError)?;
+        let resp = self
+            .client
+            .post(&url)
+            .body(body.to_string())
+            .send()
+            .await
+            .map_err(GotifyError::NetworkError)?;
         Ok(resp)
     }
 
@@ -147,7 +164,12 @@ impl GotifyClient {
         Ok(body)
     }
 
-    pub async fn get_messages(&self, since: Option<u64>, limit: Option<u64>, offset: Option<u64>) -> Result<Vec<Message>, GotifyError> {
+    pub async fn get_messages(
+        &self,
+        since: Option<u64>,
+        limit: Option<u64>,
+        offset: Option<u64>,
+    ) -> Result<Vec<Message>, GotifyError> {
         let mut endpoint = "message".to_string();
         let mut params = Vec::new();
 
@@ -171,7 +193,8 @@ impl GotifyClient {
         let body = Self::handle_response(resp).await?;
         info!("Got response body: {}", body);
 
-        let value: serde_json::Value = serde_json::from_str(&body).map_err(GotifyError::JsonError)?;
+        let value: serde_json::Value =
+            serde_json::from_str(&body).map_err(GotifyError::JsonError)?;
         info!("Parsed JSON: {}", value);
 
         let messages: Vec<Message> = value["messages"]
@@ -195,7 +218,12 @@ impl GotifyClient {
         Ok(())
     }
 
-    pub async fn create_message(&self, title: &str, message: &str, priority: i32) -> Result<Message, GotifyError> {
+    pub async fn create_message(
+        &self,
+        title: &str,
+        message: &str,
+        priority: i32,
+    ) -> Result<Message, GotifyError> {
         #[derive(Serialize)]
         struct Request {
             title: String,
@@ -212,7 +240,8 @@ impl GotifyClient {
 
         let resp = self.post("message", &req_body).await?;
         let body = Self::handle_response(resp).await?;
-        let value: serde_json::Value = serde_json::from_str(&body).map_err(GotifyError::JsonError)?;
+        let value: serde_json::Value =
+            serde_json::from_str(&body).map_err(GotifyError::JsonError)?;
         let msg: Message = serde_json::from_value(value).map_err(GotifyError::JsonError)?;
         Ok(msg)
     }
@@ -220,16 +249,23 @@ impl GotifyClient {
     pub async fn get_applications(&self) -> Result<Vec<Application>, GotifyError> {
         let resp = self.get("application").await?;
         let body = Self::handle_response(resp).await?;
-        let value: serde_json::Value = serde_json::from_str(&body).map_err(GotifyError::JsonError)?;
+        let value: serde_json::Value =
+            serde_json::from_str(&body).map_err(GotifyError::JsonError)?;
 
-        let apps: Vec<Application> = serde_json::from_value(value).map_err(GotifyError::JsonError)?;
+        let apps: Vec<Application> =
+            serde_json::from_value(value).map_err(GotifyError::JsonError)?;
         Ok(apps)
     }
 
     pub async fn get_health(&self) -> Result<bool, GotifyError> {
         let url = format!("{}/health", self.base_url);
         info!("GET {}", url);
-        let resp = self.client.get(&url).send().await.map_err(GotifyError::NetworkError)?;
+        let resp = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .map_err(GotifyError::NetworkError)?;
         Ok(resp.status().is_success())
     }
 }

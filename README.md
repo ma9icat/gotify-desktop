@@ -17,79 +17,82 @@ A modern, cross-platform desktop client for [Gotify](https://gotify.net/) built 
 
 ## ✨ Features
 
-- 🔌 **连接管理** - 安全存储 Gotify 服务器连接
-- 📬 **消息管理** - 查看、刷新、删除消息
-- 🎨 **优先级显示** - 按优先级（0-5）颜色区分消息
-- 🔄 **自动刷新** - 30 秒自动刷新消息列表
-- 🌙 **现代化界面** - 响应式设计，清晰的信息层级
-- 🔒 **本地运行** - 数据仅在本地处理，不上传到第三方
+- 🔌 **Connection Management** - Secure storage of Gotify server connections with multi-server support
+- 📬 **Message Management** - View, refresh, delete messages with pagination support
+- 🎨 **Priority Display** - Color-coded messages by priority (0-5)
+- 📡 **WebSocket Real-time Messages** - Real-time message push without manual refresh
+- 🔔 **System Notifications** - Desktop notifications for new messages
+- 💾 **Configuration Persistence** - Auto-save server configurations and app settings
+- 🎯 **System Tray** - Minimize to system tray with tray menu support
+- ⚙️ **App Settings** - Autostart, silent start, tray run, notification toggle
+- 🌙 **Modern UI** - Responsive design with clear information hierarchy and collapsible sidebar
+- 🔒 **Local Execution** - Data processed locally, no third-party uploads
 
-### 🚧 即将推出
+### 🚧 Coming Soon
 
-- 📡 **WebSocket 实时消息** - 消息实时推送
-- 🔔 **系统通知** - 新消息桌面通知
-- 💾 **配置持久化** - 自动记住服务器配置
-- 🌓 **暗色模式** - 护眼主题切换
+- 🌓 **Dark Mode** - Eye-friendly theme toggle
+- 🔍 **Message Search** - Search messages by keywords
+- 📥 **Message Export** - Export to JSON/CSV formats
 
 ---
 
 ## 📦 Installation
 
-### 前置要求
+### Prerequisites
 
-- **Rust** 1.70+ - [安装指南](https://rustup.rs/)
-- **Node.js** 18+ - [下载页面](https://nodejs.org/)
-- **系统依赖**：
+- **Rust** 1.70+ - [Installation Guide](https://rustup.rs/)
+- **Node.js** 18+ - [Download Page](https://nodejs.org/)
+- **System Dependencies**:
   - Linux: `libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev`
-  - Windows/macOS: Tauri 自动处理
+  - Windows/macOS: Tauri handles automatically
 
-### 安装步骤
+### Installation Steps
 
 ```bash
-# 1. 克隆项目
-git clone https://github.com/yourusername/gotify-desktop.git
+# 1. Clone the repository
+git clone https://github.com/ma9icat/gotify-desktop.git
 cd gotify-desktop
 
-# 2. 安装依赖
+# 2. Install dependencies
 npm install
 
-# 3. 开发模式运行
+# 3. Run in development mode
 npm run tauri dev
 
-# 4. 构建生产版本
+# 4. Build production version
 npm run tauri build
 ```
 
-### 快速启动
+### Quick Start
 
-开发模式（推荐）：
+Development mode (recommended):
 ```bash
 npm run tauri dev
 ```
 
-这将启动一个带有热重载的开发窗口。
+This will launch a development window with hot reload.
 
 ---
 
 ## 🏗️ Building
 
-### 构建命令
+### Build Commands
 
 ```bash
-# Debug 构建
+# Debug build
 cd src-tauri && cargo build
 
-# Release 构建（优化）
+# Release build (optimized)
 cd src-tauri && cargo build --release
 
-# 仅构建前端
+# Frontend build only
 npm run build
 ```
 
-### 平台支持
+### Platform Support
 
-| 平台 | 输出格式 | 命令 |
-|------|----------|------|
+| Platform | Output Format | Command |
+|----------|---------------|---------|
 | Windows | `.msi` / `.exe` | `npm run tauri build` |
 | macOS | `.dmg` / `.app` | `npm run tauri build` |
 | Linux | `.deb` / `.rpm` / `.AppImage` | `npm run tauri build` |
@@ -99,13 +102,13 @@ npm run build
 ## 🧪 Testing
 
 ```bash
-# 运行 Rust 单元测试
+# Run Rust unit tests
 cd src-tauri && cargo test
 
-# 代码格式检查
+# Code format check
 rustfmt --check src-tauri/src/*.rs
 
-# Clippy 静态分析
+# Clippy static analysis
 cargo clippy --all-features
 ```
 
@@ -115,50 +118,56 @@ cargo clippy --all-features
 
 ```
 gotify-desktop/
-├── src/                          # 前端资源
-│   ├── index.html               # 主页面 + 样式
-│   └── main.js                  # 前端逻辑
-├── src-tauri/                   # Tauri/Rust 后端
+├── src/                          # Frontend resources
+│   ├── index.html               # Main page + styles
+│   └── main.js                  # Frontend logic (state management, event handling)
+├── src-tauri/                   # Tauri/Rust backend
 │   ├── src/
-│   │   ├── main.rs              # 应用入口 + Tauri 命令
-│   │   ├── gotify.rs            # Gotify API 客户端
-│   │   └── tests.rs             # 单元测试
-│   ├── Cargo.toml               # Rust 配置
-│   └── tauri.conf.json          # Tauri 配置
+│   │   ├── main.rs              # App entry point + Tauri commands
+│   │   ├── gotify.rs            # Gotify API client
+│   │   └── tests.rs             # Unit tests
+│   ├── Cargo.toml               # Rust configuration
+│   ├── tauri.conf.json          # Tauri configuration
+│   ├── build.rs                 # Build script
+│   ├── capabilities/            # Tauri 2.x permission configuration
+│   │   └── default.json
+│   └── icons/                   # App icons
+│       ├── icon.ico
+│       └── icon.png
 ├── .github/workflows/           # CI/CD
 │   └── ci.yml                   # GitHub Actions
-├── package.json                 # NPM 脚本
-└── README.md                    # 项目说明
+├── package.json                 # NPM scripts
+└── README.md                    # Project documentation
 ```
 
 ---
 
 ## 🛠️ Development
 
-### 技术栈
+### Tech Stack
 
-| 组件 | 技术 | 版本 |
-|------|------|------|
-| 框架 | Tauri | 2.x |
-| 后端语言 | Rust | 1.70+ |
-| 前端语言 | JavaScript | ES6+ |
-| HTTP 客户端 | reqwest | 0.12 |
-| 异步运行时 | Tokio | 1.x |
-| 包管理 | npm | - |
+| Component | Technology | Version |
+|-----------|------------|---------|
+| Framework | Tauri | 2.x |
+| Backend Language | Rust | 1.70+ |
+| Frontend Language | JavaScript | ES6+ |
+| HTTP Client | reqwest | 0.12 |
+| Async Runtime | Tokio | 1.x |
+| Package Manager | npm | - |
 
-### 开发命令
+### Development Commands
 
 ```bash
-# 启动开发服务器（热重载）
+# Start dev server (hot reload)
 npm run tauri dev
 
-# 运行测试
+# Run tests
 cd src-tauri && cargo test
 
-# 运行 lint
+# Run lint
 cargo clippy
 
-# 代码格式化
+# Code formatting
 cargo fmt
 ```
 
@@ -166,25 +175,40 @@ cargo fmt
 
 ## 📝 API Reference
 
-### Tauri 命令
+### Tauri Commands
 
-| 命令 | 描述 |
-|------|------|
-| `connect_to_gotify` | 连接到 Gotify 服务器 |
-| `fetch_messages` | 获取消息列表 |
-| `delete_message` | 删除消息 |
-| `disconnect_gotify` | 断开连接 |
+| Command | Description |
+|---------|-------------|
+| `connect_to_gotify` | Connect to Gotify server (with WebSocket support) |
+| `fetch_messages` | Fetch message list (with pagination and incremental fetch) |
+| `delete_message` | Delete message |
+| `disconnect_gotify` | Disconnect from server |
+| `get_health` | Health check |
+| `create_message` | Create message |
+| `get_applications` | Get application list |
+| `save_config` | Save server configuration |
+| `get_configs` | Get configuration list |
+| `delete_config` | Delete configuration |
+| `update_config` | Update configuration |
+| `set_default_config` | Set default configuration |
+| `get_default_config` | Get default configuration |
+| `get_app_settings` | Get app settings |
+| `update_app_settings` | Update app settings |
+| `toggle_autostart` | Toggle autostart |
+| `show_window` | Show window |
+| `hide_window` | Hide window |
+| `send_notification` | Send system notification |
 
-### 消息结构
+### Message Structure
 
 ```json
 {
   "id": 1,
-  "message": "通知内容",
-  "title": "标题（可选）",
+  "message": "Notification content",
+  "title": "Title (optional)",
   "priority": 3,
   "timestamp": "2024-01-01T00:00:00Z",
-  "appid": 1,
+  "app_id": 1,
   "extras": {}
 }
 ```
@@ -193,32 +217,36 @@ cargo fmt
 
 ## 🤝 Contributing
 
-欢迎贡献代码！请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 
-1. Fork 本项目
-2. 创建分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'Add amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 发起 Pull Request
+1. Fork this repository
+2. Create a branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ---
 
 ## 📄 License
 
-本项目基于 MIT 许可证开源 - 查看 [LICENSE](LICENSE) 文件了解详情。
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
 ## 🙏 Acknowledgments
 
-- [Gotify](https://gotify.net/) - 简单的消息推送服务
-- [Tauri](https://tauri.app/) - 轻量级桌面应用框架
-- [Rust](https://www.rust-lang.org/) - 系统级编程语言
+- [Gotify](https://gotify.net/) - Simple message push service
+- [Tauri](https://tauri.app/) - Lightweight desktop application framework
+- [Rust](https://www.rust-lang.org/) - Systems programming language
+
+**Development Tool:**
+
+This project is developed and maintained entirely using [iFlow CLI](https://iflow.dev). iFlow CLI is an intelligent code assistance tool that helps efficiently complete code analysis, implementation, and documentation tasks.
 
 ---
 
 <div align="center">
 
-**如果这个项目对你有帮助，请给一个 ⭐ Star！**
+**If this project helps you, please give it a ⭐ Star!**
 
 </div>

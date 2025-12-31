@@ -1,10 +1,10 @@
 [package]
 name = "gotify-desktop"
-version = "0.2.0"
+version = "0.3.0"
 description = "A cross-platform desktop client for Gotify"
-authors = ["you"]
+authors = ["ma9icat"]
 license = "MIT"
-repository = "https://github.com/yourusername/gotify-desktop"
+repository = "https://github.com/ma9icat/gotify-desktop"
 edition = "2021"
 rust-version = "1.70"
 

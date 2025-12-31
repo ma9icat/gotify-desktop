@@ -17,7 +17,8 @@ const AppState = {
         enable_autostart: false,
         minimize_to_tray: false,
         silent_start: false,
-        enable_notifications: false
+        enable_notifications: false,
+        log_level: 'info'
     }
 };
 
@@ -115,22 +116,33 @@ async function loadMoreMessages() {
     renderMessages();
 
     try {
-        // 使用 offset 和 limit 来加载更多消息
-        const offset = AppState.messages.length;
+        // 获取当前最旧的消息 ID，使用 since 参数加载更早的消息
+        const oldestMessageId = AppState.messages[AppState.messages.length - 1]?.id;
         
-        console.log('Fetching with offset:', offset, 'limit:', 10);
+        if (!oldestMessageId) {
+            AppState.loadingMore = false;
+            renderMessages();
+            return;
+        }
+
+        console.log('Fetching with since:', oldestMessageId, 'limit:', 10);
         const result = await invoke('fetch_messages', { 
-            since: null,
+            since: oldestMessageId,
             limit: 10,
-            offset: offset
+            offset: null
         });
         console.log('Fetch result:', result);
         if (result.success) {
             const newMessages = result.data || [];
             console.log('New messages received:', newMessages.length);
             if (newMessages.length > 0) {
-                AppState.messages = [...AppState.messages, ...newMessages];
-                AppState.hasMoreMessages = newMessages.length >= 10;
+                // 去重：过滤掉已存在的消息
+                const existingIds = new Set(AppState.messages.map(m => m.id));
+                const uniqueNewMessages = newMessages.filter(m => !existingIds.has(m.id));
+                
+                console.log('Filtered unique messages:', uniqueNewMessages.length);
+                AppState.messages = [...AppState.messages, ...uniqueNewMessages];
+                AppState.hasMoreMessages = uniqueNewMessages.length >= 10;
                 console.log('Total messages:', AppState.messages.length, 'hasMore:', AppState.hasMoreMessages);
             } else {
                 AppState.hasMoreMessages = false;
@@ -679,13 +691,20 @@ async function autoConnectDefault() {
 listen('new-message', (event) => {
     console.log('收到新消息:', event.payload);
     const newMessage = event.payload;
-    // 新消息添加到列表开头
-    AppState.messages.unshift(newMessage);
-    // 保持最多100条消息
-    if (AppState.messages.length > 100) {
-        AppState.messages = AppState.messages.slice(0, 100);
+    
+    // 检查是否已存在相同 ID 的消息
+    const existingIndex = AppState.messages.findIndex(m => m.id === newMessage.id);
+    if (existingIndex === -1) {
+        // 新消息添加到列表开头
+        AppState.messages.unshift(newMessage);
+        // 保持最多100条消息
+        if (AppState.messages.length > 100) {
+            AppState.messages = AppState.messages.slice(0, 100);
+        }
+        renderMessages();
+    } else {
+        console.log('消息已存在，跳过添加:', newMessage.id);
     }
-    renderMessages();
 
     // 发送系统通知
     if (AppState.settings.enable_notifications) {
@@ -706,6 +725,7 @@ async function loadAppSettings() {
             document.getElementById('minimizeToTray').checked = AppState.settings.minimize_to_tray;
             document.getElementById('silentStart').checked = AppState.settings.silent_start;
             document.getElementById('enableNotifications').checked = AppState.settings.enable_notifications;
+            document.getElementById('logLevel').value = AppState.settings.log_level || 'info';
         }
     } catch (e) {
         console.error('加载应用设置错误:', e);
@@ -719,7 +739,8 @@ async function saveAppSettings() {
             enable_autostart: document.getElementById('enableAutostart').checked,
             minimize_to_tray: document.getElementById('minimizeToTray').checked,
             silent_start: document.getElementById('silentStart').checked,
-            enable_notifications: document.getElementById('enableNotifications').checked
+            enable_notifications: document.getElementById('enableNotifications').checked,
+            log_level: document.getElementById('logLevel').value
         };
 
         // 保存设置到文件
@@ -738,7 +759,7 @@ async function saveAppSettings() {
         }
 
         AppState.settings = settings;
-        alert('设置保存成功');
+        alert('设置保存成功。注意：日志等级修改需要重启应用才能生效。');
     } catch (e) {
         console.error('保存应用设置错误:', e);
         alert(`保存设置错误: ${e}`);
