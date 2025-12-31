@@ -2,11 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, dev]
     tags:
       - 'v*'
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, dev]
 
 jobs:
   test:
@@ -30,7 +30,7 @@ jobs:
         run: cd src-tauri && cargo test
 
       - name: Check formatting
-        run: rustfmt --check src-tauri/src/*.rs
+        run: cd src-tauri && rustfmt --check --edition 2021 src/*.rs
 
       - name: Clippy
         uses: actions-rs/clippy-check@v1
