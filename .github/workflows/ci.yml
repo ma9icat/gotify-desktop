@@ -37,6 +37,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --all-features
+          working-directory: src-tauri
 
   build-windows:
     runs-on: windows-latest
