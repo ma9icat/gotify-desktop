@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   test:
@@ -37,10 +36,7 @@ jobs:
         run: cd src-tauri && rustfmt --check --edition 2021 src/*.rs
 
       - name: Clippy
-        uses: actions-rs/clippy-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features --manifest-path=src-tauri/Cargo.toml
+        run: cd src-tauri && cargo clippy --all-features -- -D warnings
 
   build-windows:
     runs-on: windows-latest
