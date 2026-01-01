@@ -95,9 +95,7 @@ jobs:
         run: npm install
 
       - name: Build Tauri app (Linux AppImage)
-        run: npm run build
-        env:
-          TAURI_BUNDLE_TARGET: appimage
+        run: npm run build -- --target appimage
 
       - name: Upload Linux AppImage
         uses: actions/upload-artifact@v4
@@ -127,9 +125,7 @@ jobs:
         run: npm install
 
       - name: Build Tauri app (macOS DMG)
-        run: npm run build
-        env:
-          TAURI_BUNDLE_TARGET: dmg
+        run: npm run build -- --target dmg
 
       - name: Upload macOS DMG
         uses: actions/upload-artifact@v4
