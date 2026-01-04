@@ -94,16 +94,14 @@ jobs:
       - name: Install npm dependencies
         run: npm install
 
-      - name: Build Tauri app (Linux AppImage)
-        run: npm run build
-        env:
-          TAURI_BUNDLE_TARGET: appimage
+      - name: Build Tauri app (Linux deb)
+        run: npm run build -- --bundles deb
 
-      - name: Upload Linux AppImage
+      - name: Upload Linux deb
         uses: actions/upload-artifact@v4
         with:
-          name: gotify-desktop-linux-appimage
-          path: src-tauri/target/release/bundle/appimage/*.AppImage
+          name: gotify-desktop-linux-deb
+          path: src-tauri/target/release/bundle/deb/*.deb
 
   build-macos:
     runs-on: macos-latest
@@ -127,9 +125,7 @@ jobs:
         run: npm install
 
       - name: Build Tauri app (macOS DMG)
-        run: npm run build
-        env:
-          TAURI_BUNDLE_TARGET: dmg
+        run: npm run build -- --bundles dmg
 
       - name: Upload macOS DMG
         uses: actions/upload-artifact@v4
@@ -150,10 +146,10 @@ jobs:
           name: gotify-desktop-windows-msi
           path: ./artifacts/windows
 
-      - name: Download Linux AppImage
+      - name: Download Linux deb
         uses: actions/download-artifact@v4
         with:
-          name: gotify-desktop-linux-appimage
+          name: gotify-desktop-linux-deb
           path: ./artifacts/linux
 
       - name: Download macOS DMG
@@ -165,7 +161,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: ./artifacts/**/*.msi,./artifacts/**/*.AppImage,./artifacts/**/*.dmg
+          files: ./artifacts/**/*.msi,./artifacts/**/*.deb,./artifacts/**/*.dmg
           draft: false
           prerelease: false
         env:
