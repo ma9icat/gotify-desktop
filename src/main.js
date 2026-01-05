@@ -868,6 +868,59 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 500);
 });
 
+// 检查更新
+async function checkForUpdates() {
+    try {
+        const result = await invoke('check_update');
+        if (result.success) {
+            const data = result.data;
+            if (data.available) {
+                const updateModal = document.getElementById('updateModal');
+                const updateContent = document.getElementById('updateContent');
+                updateContent.innerHTML = `
+                    <p><strong>新版本:</strong> v${data.version}</p>
+                    <p><strong>当前版本:</strong> v${data.current_version}</p>
+                    <p><strong>发布日期:</strong> ${data.date || '未知'}</p>
+                    <p><strong>更新说明:</strong></p>
+                    <pre style="background: #f5f5f5; padding: 10px; border-radius: 6px; overflow-x: auto;">${data.body || '暂无更新说明'}</pre>
+                `;
+                updateModal.style.display = 'flex';
+            } else {
+                alert('当前已是最新版本');
+            }
+        }
+    } catch (e) {
+        console.error('检查更新失败:', e);
+        alert('检查更新失败: ' + e);
+    }
+}
+
+// 安装更新
+async function installUpdate() {
+    if (!confirm('确定要安装更新吗？安装完成后应用将自动重启。')) {
+        return;
+    }
+
+    try {
+        const result = await invoke('install_update');
+        if (result.success) {
+            alert('更新已下载，应用将自动重启以完成安装...');
+            closeUpdateModal();
+        } else {
+            alert('安装更新失败: ' + result.error);
+        }
+    } catch (e) {
+        console.error('安装更新失败:', e);
+        alert('安装更新失败: ' + e);
+    }
+}
+
+// 关闭更新提示模态框
+function closeUpdateModal() {
+    const updateModal = document.getElementById('updateModal');
+    updateModal.style.display = 'none';
+}
+
 // 暴露函数到全局作用域
 window.switchPage = switchPage;
 window.toggleSidebar = toggleSidebar;
@@ -878,6 +931,9 @@ window.refreshMessages = refreshMessages;
 window.showAddConfigModal = showAddConfigModal;
 window.closeConfigModal = closeConfigModal;
 window.saveConfigFromModal = saveConfigFromModal;
+window.checkForUpdates = checkForUpdates;
+window.installUpdate = installUpdate;
+window.closeUpdateModal = closeUpdateModal;
 window.editConfig = editConfig;
 window.loadMoreMessages = loadMoreMessages;
 window.saveAppSettings = saveAppSettings;

@@ -34,6 +34,13 @@ A modern, cross-platform desktop client for [Gotify](https://gotify.net/) built 
 - 🔍 **Message Search** - Search messages by keywords
 - 📥 **Message Export** - Export to JSON/CSV formats
 
+### 🆕 v0.4.0 Features
+
+- 🔄 **Auto Update** - Built-in update system with one-click installation
+- 🔒 **Security** - Disabled developer tools in production builds
+- 🎨 **UI Improvements** - Added sidebar icons using Remix Icon
+- 🐛 **Bug Fixes** - Fixed duplicate messages and pagination issues
+
 ---
 
 ## 📦 Installation
@@ -43,7 +50,7 @@ A modern, cross-platform desktop client for [Gotify](https://gotify.net/) built 
 - **Rust** 1.70+ - [Installation Guide](https://rustup.rs/)
 - **Node.js** 18+ - [Download Page](https://nodejs.org/)
 - **System Dependencies**:
-  - Linux: `libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev`
+  - Linux: `libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev`
   - Windows/macOS: Tauri handles automatically
 
 ### Installation Steps

@@ -666,6 +666,71 @@ async fn send_notification(
     Ok(ApiResponse::success(()))
 }
 
+// 检查更新
+#[tauri::command]
+async fn check_update(app: tauri::AppHandle) -> Result<ApiResponse<serde_json::Value>, String> {
+    use tauri_plugin_updater::UpdaterExt;
+
+    let updater = app
+        .updater()
+        .map_err(|e| format!("获取更新器失败: {}", e))?;
+
+    match updater.check().await {
+        Ok(Some(update)) => {
+            info!("Update available: version {}", update.version);
+            Ok(ApiResponse::success(serde_json::json!({
+                "available": true,
+                "version": update.version,
+                "date": update.date,
+                "body": update.body,
+                "current_version": env!("CARGO_PKG_VERSION")
+            })))
+        }
+        Ok(None) => {
+            info!("No update available");
+            Ok(ApiResponse::success(serde_json::json!({
+                "available": false,
+                "current_version": env!("CARGO_PKG_VERSION")
+            })))
+        }
+        Err(e) => {
+            error!("Failed to check update: {}", e);
+            Err(format!("检查更新失败: {}", e))
+        }
+    }
+}
+
+// 安装更新
+#[tauri::command]
+async fn install_update(app: tauri::AppHandle) -> Result<ApiResponse<()>, String> {
+    use tauri_plugin_updater::UpdaterExt;
+
+    let updater = app
+        .updater()
+        .map_err(|e| format!("获取更新器失败: {}", e))?;
+
+    match updater.check().await {
+        Ok(Some(update)) => {
+            info!("Installing update: version {}", update.version);
+            match update.download_and_install(|_, _| {}, || {}).await {
+                Ok(_) => {
+                    info!("Update installed successfully");
+                    Ok(ApiResponse::success(()))
+                }
+                Err(e) => {
+                    error!("Failed to install update: {}", e);
+                    Err(format!("安装更新失败: {}", e))
+                }
+            }
+        }
+        Ok(None) => Err("没有可用的更新".to_string()),
+        Err(e) => {
+            error!("Failed to check update: {}", e);
+            Err(format!("检查更新失败: {}", e))
+        }
+    }
+}
+
 fn main() {
     // 加载设置
     let settings = load_settings();
@@ -698,6 +763,7 @@ fn main() {
             Some(vec!["--hidden"]),
         ))
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(AppState::new())
         .setup(move |app| {
             // 初始化设置到 AppState
@@ -771,7 +837,9 @@ fn main() {
             hide_window,
             send_notification,
             test_websocket,
-            test_emit_event
+            test_emit_event,
+            check_update,
+            install_update
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
